@@ -1,0 +1,9 @@
+{
+  "name": "kisscut",
+  "version": "1.0.0",
+  "description": "Turn logos and images into smooth, layered SVGs for Cricut vinyl, with shareable saved projects.",
+  "main": "server.js",
+  "private": true,
+  "scripts": { "start": "node server.js" },
+  "engines": { "node": ">=18" }
+}

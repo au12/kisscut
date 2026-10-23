@@ -1,0 +1,20 @@
+services:
+  kisscut:
+    image: ghcr.io/au12/kisscut:latest
+    build: .
+    container_name: kisscut
+    restart: unless-stopped
+    ports:
+      - "8094:8080"
+    environment:
+      PUID: "99"                 # Unraid's nobody:users
+      PGID: "100"
+      TZ: America/New_York
+      TRUST_PROXY: "true"        # behind Nginx Proxy Manager: use the real client address and https
+      PUBLIC_URL: ""             # e.g. https://kisscut.example.com, used in share links and previews
+      MAX_IMAGE_MB: "25"
+      PROJECT_TTL_DAYS: "0"      # 0 keeps projects forever; 90 deletes ones nobody has opened or saved in 90 days
+      SAVES_PER_HOUR: "60"       # per client address; 0 turns the limit off
+      MAX_STORAGE_MB: "0"        # 0 = no cap; otherwise new projects are refused past this much disk
+    volumes:
+      - /mnt/user/appdata/kisscut:/data

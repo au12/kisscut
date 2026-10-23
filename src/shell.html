@@ -1,0 +1,452 @@
+<title>Kiss Cut Vectorizer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a cutting-room bench. Tools on the left, the design laid on a ruled 12-inch cutting mat in the middle,
+   the stack of vinyl layers (press order, checks, export) on the right. */
+:root {
+  --paper: #E9EEF0; --panel: #F8FAFB; --raised: #FFFFFF; --ink: #101A21; --ink-2: #44535E; --ink-3: #74838D;
+  --line: #D1D9DF; --line-2: #E2E8EC; --hover: #EEF2F4;
+  --accent: #CC1D61; --accent-hover: #AE154F; --accent-soft: #FBE3EC; --accent-ink: #FFFFFF;
+  --mat: #C3D8D0; --mat-edge: #9FBDB2; --mat-line: rgba(24, 70, 58, .14); --mat-inch: rgba(24, 70, 58, .34); --mat-num: #335F52;
+  --ok: #1C8455; --warn: #A86A10; --bad: #BC3227; --ok-soft: #DFF1E7; --warn-soft: #FAEED6; --bad-soft: #FAE3DF;
+  --shadow: 0 1px 2px rgba(16, 26, 33, .07), 0 10px 28px rgba(16, 26, 33, .12);
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0D1317; --panel: #131B20; --raised: #19232A; --ink: #E4EBEF; --ink-2: #A6B3BB; --ink-3: #74838C;
+    --line: #26323A; --line-2: #1F2A31; --hover: #1C272E;
+    --accent: #FF4D8D; --accent-hover: #FF6FA2; --accent-soft: #3A1426; --accent-ink: #1B0510;
+    --mat: #142D29; --mat-edge: #24453F; --mat-line: rgba(150, 215, 198, .09); --mat-inch: rgba(150, 215, 198, .22); --mat-num: #79AEA0;
+    --ok: #45C08B; --warn: #E3AA4E; --bad: #F2766A; --ok-soft: #12291F; --warn-soft: #2C2210; --bad-soft: #301714;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 32px rgba(0, 0, 0, .45);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0D1317; --panel: #131B20; --raised: #19232A; --ink: #E4EBEF; --ink-2: #A6B3BB; --ink-3: #74838C;
+  --line: #26323A; --line-2: #1F2A31; --hover: #1C272E;
+  --accent: #FF4D8D; --accent-hover: #FF6FA2; --accent-soft: #3A1426; --accent-ink: #1B0510;
+  --mat: #142D29; --mat-edge: #24453F; --mat-line: rgba(150, 215, 198, .09); --mat-inch: rgba(150, 215, 198, .22); --mat-num: #79AEA0;
+  --ok: #45C08B; --warn: #E3AA4E; --bad: #F2766A; --ok-soft: #12291F; --warn-soft: #2C2210; --bad-soft: #301714;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 12px 32px rgba(0, 0, 0, .45);
+  color-scheme: dark;
+}
+
+html, body { height: 100%; }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.4; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; }
+button, input, select { font: inherit; color: inherit; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+.app { height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px; }
+
+/* top bar */
+.topbar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 10px; margin-right: 8px; }
+.brand svg { width: 30px; height: 30px; flex: none; }
+.brand-name { font-family: var(--f-display); font-weight: 800; font-stretch: 125%; font-size: 19px; letter-spacing: .02em; text-transform: uppercase; line-height: 1; }
+.brand-sub { font-size: 11.5px; color: var(--ink-3); margin-top: 3px; letter-spacing: .01em; }
+.file { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1 1 260px; }
+.file-name { font-family: var(--f-mono); font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.file-name em { font-style: normal; font-family: var(--f-body); font-weight: 600; font-size: 11px; color: var(--accent); background: var(--accent-soft); padding: 2px 7px; border-radius: 99px; margin-left: 6px; }
+.top-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+/* buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 8px 13px; border-radius: 8px; border: 1px solid var(--line); background: var(--raised); color: var(--ink); font-weight: 600; font-size: 13px; cursor: pointer; white-space: nowrap; transition: border-color .15s, background .15s, color .15s; }
+.btn:hover { border-color: var(--ink-3); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn svg { width: 16px; height: 16px; flex: none; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--ink-2); }
+.btn.ghost:hover { background: var(--hover); color: var(--ink); }
+.btn.sm { padding: 6px 10px; font-size: 12.5px; }
+.btn.icon { padding: 7px; }
+.btn.wide { width: 100%; }
+.btn.danger { color: var(--bad); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* workspace */
+.workspace { display: grid; grid-template-columns: 300px minmax(0, 1fr) 330px; gap: 12px; min-height: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: auto; min-height: 0; overscroll-behavior: contain; }
+.section { padding: 15px 16px 16px; border-bottom: 1px solid var(--line-2); display: grid; gap: 12px; }
+.section:last-child { border-bottom: 0; }
+.section h2 { margin: 0; font-family: var(--f-display); font-stretch: 112%; font-weight: 700; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.section h2 .sub { font-family: var(--f-body); font-stretch: 100%; letter-spacing: 0; text-transform: none; font-weight: 500; font-size: 11.5px; }
+.field { display: grid; gap: 6px; }
+.field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.field-head output { font-family: var(--f-mono); font-size: 12px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.row { display: flex; gap: 8px; align-items: center; }
+.row > input[type=range] { flex: 1; }
+.hint { margin: 0; font-size: 12px; line-height: 1.45; color: var(--ink-3); text-wrap: pretty; }
+.check { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; color: var(--ink-2); cursor: pointer; line-height: 1.35; }
+.check input { margin: 1px 0 0; accent-color: var(--accent); width: 15px; height: 15px; flex: none; }
+
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: transparent; margin: 0; cursor: pointer; }
+input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 4px; background: linear-gradient(to right, var(--accent) var(--fill, 50%), var(--line) var(--fill, 50%)); }
+input[type=range]::-moz-range-track { height: 4px; border-radius: 4px; background: var(--line); }
+input[type=range]::-moz-range-progress { height: 4px; border-radius: 4px; background: var(--accent); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; margin-top: -6px; border-radius: 50%; background: var(--raised); border: 2px solid var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: var(--raised); border: 2px solid var(--accent); }
+input[type=number] { width: 100%; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line); background: var(--raised); font-family: var(--f-mono); font-size: 13px; }
+
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; padding: 3px; border-radius: 9px; background: var(--line-2); }
+.seg button { border: 0; background: transparent; padding: 7px 4px; border-radius: 6px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
+.seg button:hover { color: var(--ink); }
+.seg button[aria-pressed="true"] { background: var(--raised); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.14); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 4px; border-radius: 99px; border: 1px solid var(--line); background: var(--raised); font-family: var(--f-mono); font-size: 11.5px; cursor: pointer; color: var(--ink-2); }
+.chip:hover { border-color: var(--ink-3); color: var(--ink); }
+.chip i { width: 16px; height: 16px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+.chip svg { width: 12px; height: 12px; }
+.chip[aria-pressed="true"] { border-color: var(--accent); color: var(--ink); }
+
+.bg-detect { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--ink-2); min-width: 0; }
+.bg-detect .sw { width: 22px; height: 22px; border-radius: 6px; flex: none; background: var(--c, transparent); box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+.bg-detect .sw.alpha { background: repeating-conic-gradient(var(--line) 0 25%, var(--raised) 0 50%) 0 0 / 10px 10px; }
+.bg-detect span:nth-child(2) { flex: 1; min-width: 0; }
+
+/* stage */
+.stage-wrap { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; min-height: 0; min-width: 0; }
+.stage-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.tabs { display: flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--line-2); overflow-x: auto; max-width: 100%; }
+.tabs button { border: 0; background: transparent; padding: 6px 12px; border-radius: 6px; font-size: 12.5px; font-weight: 600; color: var(--ink-2); cursor: pointer; white-space: nowrap; }
+.tabs button[aria-pressed="true"] { background: var(--raised); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.14); }
+.zoom { display: flex; align-items: center; gap: 2px; }
+.zoom span { font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-2); min-width: 46px; text-align: center; }
+.stage { position: relative; overflow: hidden; touch-action: none; background: var(--paper); cursor: grab; user-select: none; -webkit-user-select: none; }
+.stage.panning { cursor: grabbing; }
+.stage.picking { cursor: crosshair; }
+#matCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.world > * { position: absolute; left: 0; top: 0; display: block; }
+#origImg { image-rendering: auto; pointer-events: none; }
+#vecSvg, #selSvg { overflow: visible; pointer-events: none; }
+#vecSvg[data-hl] path { opacity: .14; }
+#vecSvg[data-hl] path.hl { opacity: 1; }
+.split { position: absolute; top: 0; bottom: 0; width: 28px; margin-left: -14px; cursor: ew-resize; z-index: 3; touch-action: none; }
+.split::before { content: ""; position: absolute; top: 0; bottom: 0; left: 13px; width: 2px; background: var(--raised); box-shadow: 0 0 0 1px rgba(0,0,0,.12); }
+.split i { position: absolute; top: 50%; left: 50%; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 50%; background: var(--raised); box-shadow: var(--shadow); display: grid; place-items: center; color: var(--ink-2); }
+.split i svg { width: 16px; height: 16px; }
+.cmp-label { position: absolute; top: 10px; z-index: 2; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 4px 8px; border-radius: 6px; background: var(--raised); color: var(--ink-2); box-shadow: 0 1px 2px rgba(0,0,0,.12); pointer-events: none; }
+.cmp-label.l { left: 10px; } .cmp-label.r { right: 10px; }
+.progress { position: absolute; left: 0; right: 0; top: 0; height: 3px; z-index: 6; opacity: 0; transition: opacity .3s; pointer-events: none; }
+.progress.on { opacity: 1; }
+.progress i { display: block; height: 100%; width: var(--p, 0%); background: var(--accent); transition: width .25s ease; }
+.status { position: absolute; left: 10px; bottom: 10px; z-index: 5; font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-2); background: var(--raised); padding: 5px 9px; border-radius: 7px; box-shadow: 0 1px 2px rgba(0,0,0,.12); pointer-events: none; max-width: calc(100% - 20px); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status:empty { display: none; }
+.banner { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); z-index: 7; background: var(--ink); color: var(--paper); font-size: 12.5px; font-weight: 600; padding: 7px 12px; border-radius: 99px; box-shadow: var(--shadow); white-space: nowrap; }
+.drop { position: absolute; inset: 8px; z-index: 9; border: 2px dashed var(--accent); border-radius: 10px; background: var(--accent-soft); display: grid; place-items: center; font-family: var(--f-display); font-stretch: 115%; font-weight: 800; font-size: 20px; color: var(--accent); pointer-events: none; }
+.overlay-view { position: absolute; inset: 0; z-index: 4; overflow: auto; background: var(--paper); }
+.stage-foot { display: flex; justify-content: space-between; gap: 12px; padding: 7px 12px; border-top: 1px solid var(--line); font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-2); flex-wrap: wrap; }
+
+/* cut sheets */
+.sheets { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; padding: 14px; align-content: start; }
+.sheet { background: var(--raised); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: grid; grid-template-rows: auto auto; }
+.sheet-art { aspect-ratio: 1 / 1; max-width: 100%; background: repeating-linear-gradient(135deg, rgba(127,127,127,.10) 0 1px, transparent 1px 9px), var(--backing, var(--hover)); display: grid; place-items: center; padding: 14px; border-bottom: 1px solid var(--line); }
+.sheet-art svg { width: 100%; height: 100%; display: block; }
+.sheet.off .sheet-art svg { opacity: .28; }
+.sheet-meta { padding: 10px 12px 12px; display: grid; gap: 4px; min-width: 0; }
+.sheet-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.press { font-family: var(--f-mono); font-size: 10.5px; font-weight: 500; color: var(--accent); background: var(--accent-soft); padding: 2px 6px; border-radius: 5px; white-space: nowrap; }
+.sheet-name { font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sheet-stats { font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-2); }
+.sheet-note { font-size: 12px; color: var(--ink-3); }
+
+/* shirt */
+.shirt-wrap { position: absolute; inset: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.shirt-colors { display: flex; gap: 6px; padding: 10px 12px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--ink-2); }
+.shirt-colors button { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--raised); box-shadow: 0 0 0 1px var(--line); background: var(--c); cursor: pointer; padding: 0; }
+.shirt-colors button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--accent); }
+.shirt-colors label { position: relative; width: 24px; height: 24px; border-radius: 50%; box-shadow: 0 0 0 1px var(--line); background: conic-gradient(#f44, #fd4, #4d6, #4bf, #84f, #f4b, #f44); cursor: pointer; overflow: hidden; }
+.shirt-colors label input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.shirt-svg { width: 100%; height: 100%; display: block; }
+
+/* layers */
+.layer-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.layer { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 6px 6px 6px 6px; border-radius: 8px; }
+.layer:hover, .layer.hl { background: var(--hover); }
+.swatch { position: relative; width: 34px; height: 34px; border-radius: 8px; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0,0,0,.14); cursor: pointer; overflow: hidden; flex: none; }
+.swatch input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+.layer.uncut .swatch::after { z-index: 0; content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(135deg, transparent 0 5px, var(--panel) 5px 8px); }
+.layer-name { font-weight: 650; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.layer-meta { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.layer.hidden .layer-name, .layer.hidden .layer-meta { opacity: .45; }
+.layer-actions { display: flex; gap: 0; align-items: center; }
+.layer-actions .updown { display: grid; grid-template-rows: 14px 14px; }
+.layer-actions .updown button { width: 22px; height: 14px; border-radius: 4px; }
+.layer-actions .updown svg { width: 13px; height: 13px; }
+.press-no { position: absolute; right: -1px; bottom: -1px; z-index: 1; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 5px 0 7px 0; background: var(--ink); color: var(--paper); font: 500 9.5px/15px var(--f-mono); text-align: center; pointer-events: none; }
+.layer-actions button { width: 27px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--ink-3); display: grid; place-items: center; cursor: pointer; padding: 0; }
+.layer-actions button:hover { background: var(--line-2); color: var(--ink); }
+.layer-actions button[aria-pressed="false"] { color: var(--line); }
+.layer-actions button.off { color: var(--bad); }
+.layer-actions svg { width: 16px; height: 16px; }
+.layer-actions button:disabled { opacity: .3; cursor: default; }
+.lock-badge { display: inline-block; width: 11px; height: 11px; margin-left: 4px; vertical-align: -1px; color: var(--ink-3); }
+
+.checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.checks li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); }
+.checks li b { color: var(--ink); font-weight: 650; }
+.checks .tag { font-family: var(--f-mono); font-size: 10px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; padding: 2px 6px; border-radius: 5px; height: fit-content; margin-top: 1px; }
+.tag.ok { background: var(--ok-soft); color: var(--ok); } .tag.warn { background: var(--warn-soft); color: var(--warn); } .tag.bad { background: var(--bad-soft); color: var(--bad); }
+.checks button { margin-top: 5px; }
+
+.export { display: grid; gap: 8px; }
+.export .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.export .pair .btn { white-space: normal; line-height: 1.2; text-align: center; }
+details.howto summary { cursor: pointer; font-weight: 650; font-size: 13px; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+details.howto summary::-webkit-details-marker { display: none; }
+details.howto summary::after { content: "+"; font-family: var(--f-mono); color: var(--ink-3); font-size: 15px; }
+details.howto[open] summary::after { content: "–"; }
+details.howto ol { margin: 10px 0 0; padding-left: 20px; display: grid; gap: 7px; font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
+
+/* popovers + toast */
+.pop { position: absolute; z-index: 30; background: var(--raised); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 10px; width: 250px; display: grid; gap: 8px; }
+.pop-head { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.pop-head i { width: 22px; height: 22px; border-radius: 6px; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); flex: none; }
+.pop-head i.none { background: repeating-conic-gradient(var(--line) 0 25%, var(--raised) 0 50%) 0 0 / 8px 8px; }
+.pop-title { font-weight: 650; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pop-sub { font-family: var(--f-mono); font-size: 11px; color: var(--ink-3); }
+.pop-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.pop .swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.pop .swatches button { width: 26px; height: 26px; border-radius: 7px; border: 0; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); cursor: pointer; padding: 0; }
+.pop .swatches button:hover { box-shadow: inset 0 0 0 1px rgba(0,0,0,.15), 0 0 0 2px var(--accent); }
+.menu { position: fixed; z-index: 40; width: 230px; padding: 6px; gap: 2px; }
+.menu button.item { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; border: 0; background: transparent; padding: 7px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; color: var(--ink); }
+.menu button.item:hover { background: var(--hover); }
+.menu button.item i { width: 14px; height: 14px; border-radius: 4px; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); flex: none; }
+.menu button.item svg { width: 15px; height: 15px; color: var(--ink-3); }
+.menu hr { border: 0; border-top: 1px solid var(--line-2); margin: 4px 0; }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 50; background: var(--ink); color: var(--paper); padding: 9px 14px; border-radius: 9px; font-size: 13px; font-weight: 600; box-shadow: var(--shadow); max-width: calc(100vw - 32px); }
+.save-state { font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
+.save-state:empty { display: none; }
+.share-pop { position: fixed; z-index: 45; width: min(390px, calc(100vw - 16px)); padding: 12px; gap: 10px; }
+.share-row { display: flex; gap: 6px; }
+.share-url { flex: 1; min-width: 0; font-family: var(--f-mono); font-size: 12px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink); }
+.codebox { width: 100%; height: 140px; font-family: var(--f-mono); font-size: 11px; border-radius: 8px; border: 1px solid var(--line); background: var(--raised); padding: 8px; resize: vertical; }
+
+@media (max-width: 1360px) { .workspace { grid-template-columns: 276px minmax(0, 1fr) 306px; } }
+@media (max-width: 1120px) {
+  html, body { height: auto; }
+  .app { height: auto; }
+  .workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "stage stage" "layers settings"; }
+  .stage-wrap { grid-area: stage; height: clamp(380px, 66vh, 780px); }
+  .layers-panel { grid-area: layers; } .settings-panel { grid-area: settings; }
+  .panel { overflow: visible; }
+}
+@media (max-width: 720px) {
+  .workspace { grid-template-columns: minmax(0, 1fr); grid-template-areas: "stage" "layers" "settings"; }
+  .stage-wrap { height: clamp(360px, 62vh, 640px); }
+  .brand-sub { display: none; }
+  .top-right .btn.primary span, .save-state { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 30 30" aria-hidden="true"><rect x="3" y="8" width="16" height="16" rx="3.5" fill="var(--accent)"/><rect x="10.5" y="3.5" width="16" height="16" rx="3.5" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-dasharray="3.2 2.4"/></svg>
+      <div><div class="brand-name">Kiss Cut</div><div class="brand-sub">Image to layered vinyl SVG</div></div>
+    </div>
+    <div class="file">
+      <button class="btn" id="btnOpen" type="button"><span data-icon="open"></span>Open image</button>
+      <input id="fileInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/svg+xml,image/avif" hidden>
+      <span class="file-name" id="fileName"></span>
+    </div>
+    <div class="top-right">
+      <button class="btn ghost sm" id="btnSample" type="button">Load sample</button>
+      <span class="save-state" id="saveState" hidden></span>
+      <button class="btn" id="btnShare" type="button" hidden><span data-icon="link"></span><span id="btnShareLabel">Save &amp; share</span></button>
+      <button class="btn icon ghost" id="btnUndo" type="button" aria-label="Undo" title="Undo (Ctrl+Z)" disabled><span data-icon="undo"></span></button>
+      <button class="btn primary" id="btnSvgTop" type="button"><span data-icon="download"></span><span>Layered SVG</span></button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <aside class="panel settings-panel" aria-label="Settings">
+      <section class="section">
+        <h2>Colors</h2>
+        <div class="field">
+          <div class="field-head"><label for="inK">Number of colors</label><output id="outK" for="inK"></output></div>
+          <div class="row"><input type="range" id="inK" min="2" max="16" step="1"><button class="btn sm" id="btnAutoK" type="button"><span data-icon="wand"></span>Suggest</button></div>
+          <p class="hint" id="kHint">Each color becomes one sheet of vinyl.</p>
+        </div>
+        <div class="field">
+          <button class="btn sm wide" id="btnPick" type="button"><span data-icon="pipette"></span>Add a color from the image</button>
+          <div class="chips" id="lockedChips"></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Background</h2>
+        <div class="seg" id="segBg" role="group" aria-label="Background">
+          <button type="button" data-v="auto">Auto</button><button type="button" data-v="remove">Remove</button><button type="button" data-v="keep">Keep</button>
+        </div>
+        <div class="bg-detect"><span class="sw" id="bgSwatch"></span><span id="bgText">Looking for a background</span><button class="btn sm ghost" id="btnPickBg" type="button"><span data-icon="pipette"></span>Pick</button></div>
+        <div class="field">
+          <div class="field-head"><label for="inBgTol">Tolerance</label><output id="outBgTol" for="inBgTol"></output></div>
+          <input type="range" id="inBgTol" min="2" max="30" step="1">
+        </div>
+        <label class="check"><input type="checkbox" id="inBgGrad">Follow soft shadows and gradients</label>
+        <label class="check"><input type="checkbox" id="inBgGlobal">Also remove that color inside the design</label>
+      </section>
+
+      <section class="section">
+        <h2>Cleanup</h2>
+        <div class="field">
+          <div class="field-head"><label for="inSmooth">Smoothness</label><output id="outSmooth" for="inSmooth"></output></div>
+          <input type="range" id="inSmooth" min="0" max="100" step="1">
+          <p class="hint">Rounds off jaggies, texture and JPEG blockiness.</p>
+        </div>
+        <div class="field">
+          <div class="field-head"><label for="inCorners">Corner sharpness</label><output id="outCorners" for="inCorners"></output></div>
+          <input type="range" id="inCorners" min="0" max="100" step="1">
+        </div>
+        <div class="field">
+          <div class="field-head"><label for="inMinPiece">Smallest piece</label><output id="outMinPiece" for="inMinPiece"></output></div>
+          <input type="range" id="inMinPiece" min="0" max="5" step="0.1">
+          <p class="hint">Specks and pinholes smaller than this get absorbed by their neighbor so there's nothing tiny to weed.</p>
+        </div>
+        <div class="field">
+          <div class="field-head"><span>Texture cleanup</span></div>
+          <div class="seg" id="segDenoise" role="group" aria-label="Texture cleanup">
+            <button type="button" data-v="0">Off</button><button type="button" data-v="1">Light</button><button type="button" data-v="2">Medium</button><button type="button" data-v="3">Strong</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Cricut output</h2>
+        <div class="field">
+          <div class="field-head"><label for="inWidth">Design width</label><output id="outHeight"></output></div>
+          <div class="row"><input type="number" id="inWidth" min="0.5" max="24" step="0.25" inputmode="decimal"><span class="mono" style="font-size:12px;color:var(--ink-3)">in</span></div>
+          <div class="chips" id="sizeChips">
+            <button type="button" class="chip" data-w="3.5">Left chest 3.5″</button>
+            <button type="button" class="chip" data-w="8">Youth 8″</button>
+            <button type="button" class="chip" data-w="10">Adult 10″</button>
+            <button type="button" class="chip" data-w="12">Oversize 12″</button>
+          </div>
+        </div>
+        <div class="field">
+          <div class="field-head"><span>Layering</span></div>
+          <div class="seg" id="segMode" role="group" aria-label="Layering">
+            <button type="button" data-v="overlap">Overlap</button><button type="button" data-v="knockout">Knockout</button><button type="button" data-v="underlay">Underlay</button>
+          </div>
+          <p class="hint" id="modeHint"></p>
+        </div>
+        <div class="field" id="trapField">
+          <div class="field-head"><label for="inTrap">Overlap amount</label><output id="outTrap" for="inTrap"></output></div>
+          <input type="range" id="inTrap" min="0.3" max="3" step="0.1">
+        </div>
+        <label class="check"><input type="checkbox" id="inMarks"><span>Add alignment marks<br><span class="hint">The same two crosses in every layer, so each mat cuts in register and the carriers line up on the shirt.</span></span></label>
+      </section>
+
+      <section class="section">
+        <h2>Advanced</h2>
+        <div class="field">
+          <div class="field-head"><label for="inPrecision">Curve precision</label><output id="outPrecision" for="inPrecision"></output></div>
+          <input type="range" id="inPrecision" min="0" max="100" step="1">
+          <p class="hint">Higher follows the image more closely; lower gives fewer, longer curves that cut cleaner.</p>
+        </div>
+        <div class="field">
+          <div class="field-head"><span>Working resolution</span><output id="outRes"></output></div>
+          <div class="seg" id="segQuality" role="group" aria-label="Working resolution">
+            <button type="button" data-v="fast">Fast</button><button type="button" data-v="standard">Standard</button><button type="button" data-v="max">Max</button>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <section class="stage-wrap" aria-label="Preview">
+      <div class="stage-bar">
+        <div class="tabs" id="tabs">
+          <button type="button" data-view="compare">Compare</button>
+          <button type="button" data-view="vector">Vector</button>
+          <button type="button" data-view="sheets">Cut sheets</button>
+          <button type="button" data-view="shirt">On a shirt</button>
+        </div>
+        <div class="zoom" id="zoomBar">
+          <button class="btn icon ghost" id="zOut" type="button" aria-label="Zoom out"><span data-icon="minus"></span></button>
+          <span id="zPct">100%</span>
+          <button class="btn icon ghost" id="zIn" type="button" aria-label="Zoom in"><span data-icon="plus"></span></button>
+          <button class="btn sm ghost" id="zFit" type="button">Fit</button>
+        </div>
+      </div>
+      <div class="stage" id="stage">
+        <canvas id="matCanvas" aria-hidden="true"></canvas>
+        <div class="world" id="world">
+          <img id="origImg" alt="Original image">
+          <svg id="vecSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+          <svg id="selSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+        <div class="split" id="split" role="slider" aria-label="Compare original and vector" tabindex="0"><i><span data-icon="split"></span></i></div>
+        <span class="cmp-label l" id="lblL">Original</span><span class="cmp-label r" id="lblR">Vector</span>
+        <div class="overlay-view" id="sheetsView" hidden><div class="sheets" id="sheets"></div></div>
+        <div class="overlay-view" id="shirtView" hidden>
+          <div class="shirt-wrap">
+            <div class="shirt-colors" id="shirtColors"><span>Shirt</span></div>
+            <svg class="shirt-svg" id="shirtSvg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+        </div>
+        <div class="progress" id="progress"><i></i></div>
+        <div class="status" id="status"></div>
+        <div class="banner" id="banner" hidden></div>
+        <div class="drop" id="drop" hidden>Drop to vectorize</div>
+        <div class="pop" id="piecePop" hidden></div>
+      </div>
+      <div class="stage-foot"><span id="footSize"></span><span id="footStats"></span></div>
+    </section>
+
+    <aside class="panel layers-panel" aria-label="Layers and export">
+      <section class="section">
+        <h2>Layers <span class="sub">top of the stack first</span></h2>
+        <ol class="layer-list" id="layerList"></ol>
+        <p class="hint">Click any shape on the canvas to delete it or change its color.</p>
+      </section>
+      <section class="section">
+        <h2>Cricut check</h2>
+        <ul class="checks" id="checks"></ul>
+      </section>
+      <section class="section">
+        <h2>Export</h2>
+        <div class="export">
+          <button class="btn primary wide" id="btnSvg" type="button"><span data-icon="download"></span>Layered SVG for Design Space</button>
+          <div class="pair">
+            <button class="btn" id="btnZip" type="button">One SVG per color (.zip)</button>
+            <button class="btn" id="btnPng" type="button">PNG, 300 dpi</button>
+          </div>
+          <button class="btn ghost sm" id="btnCopy" type="button"><span data-icon="copy"></span>Copy SVG code</button>
+          <div id="copyBox" hidden></div>
+          <p class="hint">Upload the layered SVG; each color lands as its own layer, already in place. The PNG is for Print Then Cut or printable vinyl.</p>
+        </div>
+      </section>
+      <section class="section">
+        <details class="howto" id="howto">
+          <summary>Pressing a layered design</summary>
+          <ol id="howtoSteps"></ol>
+        </details>
+      </section>
+    </aside>
+  </main>
+</div>
+<div class="pop menu" id="menu" hidden></div>
+<div class="pop share-pop" id="sharePop" role="dialog" aria-label="Share this project" hidden></div>
+<div class="toast" id="toast" hidden></div>
+
+<script id="kc-engine">
+/*ENGINE*/
+</script>
+<script>
+/*APP*/
+</script>

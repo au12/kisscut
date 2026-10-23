@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>kisscut</Name>
+  <Repository>ghcr.io/au12/kisscut:latest</Repository>
+  <Registry>https://github.com/au12/kisscut/pkgs/container/kisscut</Registry>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/au12/kisscut</Support>
+  <Project>https://github.com/au12/kisscut</Project>
+  <Overview>Turn logos and images into smooth, layered SVGs for Cricut vinyl. Save a project to a link anyone can open to pick up where it was left off.</Overview>
+  <Category>Tools: Productivity:</Category>
+  <WebUI>http://[IP]:[PORT:8080]/</WebUI>
+  <Icon>https://raw.githubusercontent.com/au12/kisscut/main/server/public/favicon.svg</Icon>
+  <Config Name="Web port" Target="8080" Default="8094" Mode="tcp" Description="Port for the web UI." Type="Port" Display="always" Required="true" Mask="false">8094</Config>
+  <Config Name="Projects" Target="/data" Default="/mnt/user/appdata/kisscut" Mode="rw" Description="Saved projects: each one's image and settings." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/kisscut</Config>
+  <Config Name="Public URL" Target="PUBLIC_URL" Default="" Description="Base address used in share links and link previews, e.g. https://kisscut.example.com. Leave empty to use the address in the browser." Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Behind a reverse proxy" Target="TRUST_PROXY" Default="true" Description="true when served through Nginx Proxy Manager or another proxy, so rate limits see real client addresses." Type="Variable" Display="always" Required="false" Mask="false">true</Config>
+  <Config Name="Delete unused projects after (days)" Target="PROJECT_TTL_DAYS" Default="0" Description="0 keeps projects forever. Otherwise a project nobody has opened or saved for this many days is deleted." Type="Variable" Display="always" Required="false" Mask="false">0</Config>
+  <Config Name="Largest image (MB)" Target="MAX_IMAGE_MB" Default="25" Description="Uploads above this are refused." Type="Variable" Display="advanced" Required="false" Mask="false">25</Config>
+  <Config Name="Saves per hour per address" Target="SAVES_PER_HOUR" Default="60" Description="0 turns the limit off." Type="Variable" Display="advanced" Required="false" Mask="false">60</Config>
+  <Config Name="Storage cap (MB)" Target="MAX_STORAGE_MB" Default="0" Description="0 = no cap. Past this, new projects are refused (updates still work)." Type="Variable" Display="advanced" Required="false" Mask="false">0</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Description="User that owns the saved files." Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Description="Group that owns the saved files." Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+</Container>
